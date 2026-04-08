@@ -76,9 +76,11 @@ create table if not exists public.candidates (
   full_name text,
   phone text,
   created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now(),
-  unique (employer_id, lower(email))
+  updated_at timestamptz not null default now()
 );
+
+create unique index if not exists candidates_employer_email_lower_idx
+  on public.candidates (employer_id, lower(email));
 
 create index if not exists candidates_employer_id_idx on public.candidates (employer_id);
 
