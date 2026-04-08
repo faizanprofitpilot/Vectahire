@@ -42,7 +42,7 @@ export async function inviteCandidatesToJob(jobId: string, emailsRaw: string) {
     return { error: "Job not found." };
   }
 
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://vectahire.xyz";
   const companyName = employer.company_name || "Your company";
 
   let sent = 0;
