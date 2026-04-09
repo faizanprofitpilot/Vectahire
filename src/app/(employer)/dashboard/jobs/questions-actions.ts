@@ -12,7 +12,6 @@ import {
   type InterviewQuestionItem,
 } from "@/lib/jobs/interview-questions";
 import { generateInterviewQuestionsForRole } from "@/lib/ai/generate-interview-questions";
-import { getQStashClient, appOrigin } from "@/lib/qstash";
 
 export async function saveInterviewQuestionsAction(
   jobId: string,
@@ -54,21 +53,6 @@ export async function saveInterviewQuestionsAction(
       .eq("id", jobId);
 
     if (error) return { error: error.message };
-
-    try {
-      const client = getQStashClient();
-      const origin = appOrigin() || "http://localhost:3000";
-      await client.publish({
-        url: `${origin}/api/jobs/${jobId}/build-audio`,
-        body: JSON.stringify({ jobId }),
-        headers: {
-          "Content-Type": "application/json",
-          "Upstash-Deduplication-Id": `job-audio-${jobId}`,
-        },
-      });
-    } catch (e) {
-      console.error("QStash enqueue failed (saveInterviewQuestionsAction)", e);
-    }
   } catch (e) {
     const message = e instanceof Error ? e.message : "Could not update interview questions";
     return { error: message };
@@ -124,21 +108,6 @@ export async function generateInterviewQuestionsAction(
       .eq("id", jobId);
 
     if (error) return { error: error.message };
-
-    try {
-      const client = getQStashClient();
-      const origin = appOrigin() || "http://localhost:3000";
-      await client.publish({
-        url: `${origin}/api/jobs/${jobId}/build-audio`,
-        body: JSON.stringify({ jobId }),
-        headers: {
-          "Content-Type": "application/json",
-          "Upstash-Deduplication-Id": `job-audio-${jobId}`,
-        },
-      });
-    } catch (e) {
-      console.error("QStash enqueue failed (generateInterviewQuestionsAction)", e);
-    }
 
     revalidatePath(`/dashboard/jobs/${jobId}`);
     revalidatePath("/dashboard/jobs");

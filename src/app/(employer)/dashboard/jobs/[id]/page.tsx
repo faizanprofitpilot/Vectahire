@@ -20,6 +20,7 @@ import { summarizeCandidateComparison } from "@/lib/ai/job-comparison";
 import { parseInterviewQuestions } from "@/lib/jobs/interview-questions";
 import { isAudioReadyForQuestions } from "@/lib/jobs/interview-audio";
 import { InterviewQuestionsPanel } from "@/components/jobs/interview-questions-panel";
+import { JobBuildPlanKickoff } from "@/components/jobs/job-build-plan-kickoff";
 import {
   pickScore,
   pickSession,
@@ -179,6 +180,7 @@ export default async function JobDetailPage({
 
   return (
     <div className="mx-auto max-w-6xl space-y-10 pb-12">
+      {!audioReady ? <JobBuildPlanKickoff jobId={job.id} /> : null}
       <div className="flex flex-wrap items-center gap-3">
         <Button variant="outline" size="sm" asChild className="gap-2 rounded-full">
           <Link href="/dashboard/jobs">

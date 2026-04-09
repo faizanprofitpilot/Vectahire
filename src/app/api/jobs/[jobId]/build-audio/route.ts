@@ -3,7 +3,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { ensureJobInterviewTts } from "@/lib/jobs/job-question-tts";
 import { parseInterviewQuestions } from "@/lib/jobs/interview-questions";
 import { isAudioReadyForQuestions } from "@/lib/jobs/interview-audio";
-import { getQStashReceiver } from "@/lib/qstash";
+import { createClient } from "@/lib/supabase/server";
+import { ensureEmployer } from "@/lib/services/employer";
 
 export const maxDuration = 120;
 
@@ -12,35 +13,21 @@ export async function POST(
   context: { params: Promise<{ jobId: string }> },
 ) {
   const { jobId } = await context.params;
-
-  const signature = request.headers.get("upstash-signature");
-  if (!signature) {
-    return NextResponse.json({ error: "missing_signature" }, { status: 400 });
-  }
-
-  const body = await request.text();
-  try {
-    const receiver = getQStashReceiver();
-    const ok = await receiver.verify({
-      signature,
-      body,
-      url: request.url,
-    });
-    if (!ok) {
-      return NextResponse.json({ error: "invalid_signature" }, { status: 401 });
-    }
-  } catch {
-    return NextResponse.json({ error: "invalid_signature" }, { status: 401 });
-  }
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  const employer = await ensureEmployer(user);
 
   const admin = createAdminClient();
-  const { data: job, error } = await admin
+  const { data: job, error } = await supabase
     .from("jobs")
-    .select("id, interview_questions")
+    .select("id, employer_id, interview_questions")
     .eq("id", jobId)
     .maybeSingle();
 
-  if (error || !job) {
+  if (error || !job || job.employer_id !== employer.id) {
     return NextResponse.json({ error: "not_found" }, { status: 404 });
   }
 

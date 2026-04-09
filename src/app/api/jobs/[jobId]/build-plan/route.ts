@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { getQStashReceiver } from "@/lib/qstash";
+import { createClient } from "@/lib/supabase/server";
+import { ensureEmployer } from "@/lib/services/employer";
 import { generateInterviewQuestionsForRole } from "@/lib/ai/generate-interview-questions";
 import { ensureJobInterviewTts } from "@/lib/jobs/job-question-tts";
 import { randomUUID } from "crypto";
@@ -13,31 +14,24 @@ export async function POST(
 ) {
   const { jobId } = await context.params;
 
-  const signature = request.headers.get("upstash-signature");
-  if (!signature) {
-    return NextResponse.json({ error: "missing_signature" }, { status: 400 });
-  }
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  const employer = await ensureEmployer(user);
 
-  const body = await request.text();
-  try {
-    const receiver = getQStashReceiver();
-    const ok = await receiver.verify({ signature, body, url: request.url });
-    if (!ok) return NextResponse.json({ error: "invalid_signature" }, { status: 401 });
-  } catch {
-    return NextResponse.json({ error: "invalid_signature" }, { status: 401 });
-  }
-
-  const admin = createAdminClient();
-  const { data: job, error } = await admin
+  const { data: job, error } = await supabase
     .from("jobs")
-    .select("id, title, description, seniority, required_skills, hiring_priorities")
+    .select("id, employer_id, title, description, seniority, required_skills, hiring_priorities")
     .eq("id", jobId)
     .maybeSingle();
 
-  if (error || !job) {
+  if (error || !job || job.employer_id !== employer.id) {
     return NextResponse.json({ error: "not_found" }, { status: 404 });
   }
 
+  const admin = createAdminClient();
   const skills = Array.isArray(job.required_skills) ? job.required_skills.map(String) : [];
   const texts = await generateInterviewQuestionsForRole({
     title: job.title,

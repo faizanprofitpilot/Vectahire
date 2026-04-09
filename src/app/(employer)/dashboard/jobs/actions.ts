@@ -7,7 +7,6 @@ import { createClient } from "@/lib/supabase/server";
 import { ensureEmployer } from "@/lib/services/employer";
 import { jobFormSchema } from "@/lib/validation/job";
 import { enrichJobDescription, generateJobFieldsFromTitle } from "@/lib/ai/job-enrich";
-import { getQStashClient, appOrigin } from "@/lib/qstash";
 import { defaultInterviewQuestions } from "@/lib/jobs/default-interview-questions";
 
 export async function createJob(formData: FormData) {
@@ -59,37 +58,19 @@ export async function createJob(formData: FormData) {
       salary_currency: v.salary_currency,
       hiring_priorities: v.hiring_priorities ?? null,
       interview_focus: interviewFocus,
-      interview_questions: [],
+      // Attach a usable 10-question draft at insert-time (single DB round-trip).
+      interview_questions: defaultInterviewQuestions({
+        title: v.title,
+        seniority: v.seniority,
+        requiredSkills: v.required_skills,
+      }),
     })
     .select("id")
     .single();
 
   if (error) return { error: error.message };
 
-  // Immediately attach a usable 10-question draft (fast) so the job page is ready in seconds.
-  const draftQuestions = defaultInterviewQuestions({
-    title: v.title,
-    seniority: v.seniority,
-    requiredSkills: v.required_skills,
-  });
-  await supabase.from("jobs").update({ interview_questions: draftQuestions }).eq("id", data.id);
-
-  // Out-of-band: generate AI questions + TTS before invites unlock.
-  try {
-    const client = getQStashClient();
-    const origin = appOrigin() || "http://localhost:3000";
-    const url = `${origin}/api/jobs/${data.id}/build-plan`;
-    await client.publish({
-      url,
-      body: JSON.stringify({ jobId: data.id }),
-      headers: {
-        "Content-Type": "application/json",
-        "Upstash-Deduplication-Id": `job-plan-${data.id}`,
-      },
-    });
-  } catch (e) {
-    console.error("QStash enqueue failed", e);
-  }
+  // AI + audio are generated automatically in the background (job page kickoff).
 
   revalidatePath("/dashboard");
   revalidatePath("/dashboard/jobs");
@@ -172,21 +153,7 @@ export async function updateJob(jobId: string, formData: FormData) {
         requiredSkills: v.required_skills,
       });
       await supabase.from("jobs").update({ interview_questions: draft }).eq("id", jobId);
-      try {
-        const client = getQStashClient();
-        const origin = appOrigin() || "http://localhost:3000";
-        const url = `${origin}/api/jobs/${jobId}/build-plan`;
-        await client.publish({
-          url,
-          body: JSON.stringify({ jobId }),
-          headers: {
-            "Content-Type": "application/json",
-            "Upstash-Deduplication-Id": `job-plan-${jobId}`,
-          },
-        });
-      } catch (e) {
-        console.error("QStash enqueue failed (updateJob)", e);
-      }
+      // Enqueue happens on the job page to keep updates fast.
     } catch (e) {
       console.error("Regenerate interview plan failed", e);
     }
