@@ -71,6 +71,7 @@ export interface Database {
           hiring_priorities: string | null;
           interview_focus: Json | null;
           interview_questions: Json;
+          ai_interview_plan_applied: boolean | null;
           created_at: string;
           updated_at: string;
         };
@@ -88,6 +89,7 @@ export interface Database {
           hiring_priorities?: string | null;
           interview_focus?: Json | null;
           interview_questions?: Json;
+          ai_interview_plan_applied?: boolean | null;
         };
         Update: Partial<Database["public"]["Tables"]["jobs"]["Insert"]>;
       };

@@ -10,12 +10,28 @@ import { enrichJobDescription, generateJobFieldsFromTitle } from "@/lib/ai/job-e
 import { defaultInterviewQuestions } from "@/lib/jobs/default-interview-questions";
 
 export async function createJob(formData: FormData) {
+  const dbg = process.env.DEBUG_JOB_CREATE_TIMING === "1";
+  const mark = (label: string) => {
+    if (dbg) console.time(`[createJob] ${label}`);
+  };
+  const end = (label: string) => {
+    if (dbg) console.timeEnd(`[createJob] ${label}`);
+  };
+
+  mark("createClient");
   const supabase = await createClient();
+  end("createClient");
+
+  mark("getUser");
   const {
     data: { user },
   } = await supabase.auth.getUser();
+  end("getUser");
   if (!user) redirect("/login");
+
+  mark("ensureEmployer");
   const employer = await ensureEmployer(user);
+  end("ensureEmployer");
 
   const parsed = jobFormSchema.safeParse({
     title: formData.get("title"),
@@ -44,6 +60,7 @@ export async function createJob(formData: FormData) {
     }
   }
 
+  mark("jobs.insert");
   const { data, error } = await supabase
     .from("jobs")
     .insert({
@@ -64,16 +81,21 @@ export async function createJob(formData: FormData) {
         seniority: v.seniority,
         requiredSkills: v.required_skills,
       }),
+      ai_interview_plan_applied: false,
     })
     .select("id")
     .single();
+  end("jobs.insert");
 
   if (error) return { error: error.message };
 
   // AI + audio are generated automatically in the background (job page kickoff).
 
+  mark("revalidatePath(dashboard)");
   revalidatePath("/dashboard");
   revalidatePath("/dashboard/jobs");
+  end("revalidatePath(dashboard)");
+
   redirect(`/dashboard/jobs/${data.id}`);
 }
 
@@ -152,7 +174,10 @@ export async function updateJob(jobId: string, formData: FormData) {
         seniority: v.seniority,
         requiredSkills: v.required_skills,
       });
-      await supabase.from("jobs").update({ interview_questions: draft }).eq("id", jobId);
+      await supabase
+        .from("jobs")
+        .update({ interview_questions: draft, ai_interview_plan_applied: false })
+        .eq("id", jobId);
       // Enqueue happens on the job page to keep updates fast.
     } catch (e) {
       console.error("Regenerate interview plan failed", e);

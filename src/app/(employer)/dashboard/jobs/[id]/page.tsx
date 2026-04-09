@@ -154,6 +154,9 @@ export default async function JobDetailPage({
 
   const parsedQuestions = parseInterviewQuestions(job.interview_questions);
   const audioReady = isAudioReadyForQuestions(parsedQuestions);
+  const planKickKey = parsedQuestions
+    .map((q) => `${q.id}:${q.text.length}:${q.tts_path ? "1" : "0"}`)
+    .join("|");
 
   let completedInterviews = 0;
   let strongCount = 0;
@@ -180,7 +183,7 @@ export default async function JobDetailPage({
 
   return (
     <div className="mx-auto max-w-6xl space-y-10 pb-12">
-      {!audioReady ? <JobBuildPlanKickoff jobId={job.id} /> : null}
+      {!audioReady ? <JobBuildPlanKickoff jobId={job.id} kickKey={planKickKey} /> : null}
       <div className="flex flex-wrap items-center gap-3">
         <Button variant="outline" size="sm" asChild className="gap-2 rounded-full">
           <Link href="/dashboard/jobs">

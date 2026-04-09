@@ -104,7 +104,7 @@ export async function generateInterviewQuestionsAction(
 
     const { error } = await supabase
       .from("jobs")
-      .update({ interview_questions: questions })
+      .update({ interview_questions: questions, ai_interview_plan_applied: true })
       .eq("id", jobId);
 
     if (error) return { error: error.message };
