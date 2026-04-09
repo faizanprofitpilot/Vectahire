@@ -6,6 +6,7 @@ import { ensureEmployer } from "@/lib/services/employer";
 import { sendInterviewInvite } from "@/lib/emails/send-invite";
 import { getLimitsForTier } from "@/lib/billing/limits";
 import { getOrCreateUsageRow, incrementInvites } from "@/lib/services/usage";
+import { isAudioReadyForJobInterviewQuestions } from "@/lib/jobs/interview-audio";
 
 function parseEmails(raw: string): string[] {
   return raw
@@ -35,11 +36,17 @@ export async function inviteCandidatesToJob(jobId: string, emailsRaw: string) {
 
   const { data: job, error: jobErr } = await supabase
     .from("jobs")
-    .select("id, title, employer_id")
+    .select("id, title, employer_id, interview_questions")
     .eq("id", jobId)
     .single();
   if (jobErr || !job || job.employer_id !== employer.id) {
     return { error: "Job not found." };
+  }
+  if (!isAudioReadyForJobInterviewQuestions(job.interview_questions)) {
+    return {
+      error:
+        "Interview audio is still preparing for this role. Try again in a moment.",
+    };
   }
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://vectahire.xyz";

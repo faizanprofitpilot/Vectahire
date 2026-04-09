@@ -12,12 +12,28 @@ import {
 } from "@/components/ui/dialog";
 import { InviteCandidatesForm } from "@/components/jobs/invite-candidates-form";
 
-export function InviteCandidatesDialog({ jobId }: { jobId: string }) {
+export function InviteCandidatesDialog({
+  jobId,
+  disabled,
+  disabledHint,
+}: {
+  jobId: string;
+  disabled?: boolean;
+  disabledHint?: string;
+}) {
   return (
     <Dialog>
-      <DialogTrigger render={<Button className="gap-2 rounded-full shadow-sm shadow-primary/10" />}>
+      <DialogTrigger
+        render={
+          <Button
+            className="gap-2 rounded-full shadow-sm shadow-primary/10"
+            disabled={disabled}
+            title={disabled ? disabledHint : undefined}
+          />
+        }
+      >
         <Mail className="size-4" />
-        Invite candidates
+        {disabled ? "Preparing audio…" : "Invite candidates"}
       </DialogTrigger>
       <DialogContent className="max-w-[calc(100%-2rem)] sm:max-w-md" showCloseButton>
         <DialogHeader>

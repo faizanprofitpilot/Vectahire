@@ -18,6 +18,7 @@ import { DeleteJobButton } from "@/components/jobs/delete-job-button";
 import { RemoveFromJobButton } from "@/components/jobs/remove-from-job-button";
 import { summarizeCandidateComparison } from "@/lib/ai/job-comparison";
 import { parseInterviewQuestions } from "@/lib/jobs/interview-questions";
+import { isAudioReadyForQuestions } from "@/lib/jobs/interview-audio";
 import { InterviewQuestionsPanel } from "@/components/jobs/interview-questions-panel";
 import {
   pickScore,
@@ -150,6 +151,9 @@ export default async function JobDetailPage({
     ? (job.required_skills as string[])
     : [];
 
+  const parsedQuestions = parseInterviewQuestions(job.interview_questions);
+  const audioReady = isAudioReadyForQuestions(parsedQuestions);
+
   let completedInterviews = 0;
   let strongCount = 0;
   for (const a of appRows) {
@@ -195,7 +199,11 @@ export default async function JobDetailPage({
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <InviteCandidatesDialog jobId={job.id} />
+            <InviteCandidatesDialog
+              jobId={job.id}
+              disabled={!audioReady}
+              disabledHint="Preparing interview audio. You can edit questions now; invites unlock when audio is ready."
+            />
             <DeleteJobButton jobId={job.id} jobTitle={job.title} />
           </div>
         </div>
@@ -247,7 +255,7 @@ export default async function JobDetailPage({
 
       <InterviewQuestionsPanel
         jobId={job.id}
-        initialQuestions={parseInterviewQuestions(job.interview_questions)}
+        initialQuestions={parsedQuestions}
       />
 
       <div className="grid gap-10 lg:grid-cols-[1fr_minmax(0,280px)] lg:items-start">
@@ -269,7 +277,11 @@ export default async function JobDetailPage({
                 scored.
               </p>
               <div className="mt-6 flex justify-center">
-                <InviteCandidatesDialog jobId={job.id} />
+                <InviteCandidatesDialog
+                  jobId={job.id}
+                  disabled={!audioReady}
+                  disabledHint="Preparing interview audio. You can edit questions now; invites unlock when audio is ready."
+                />
               </div>
             </div>
           ) : (

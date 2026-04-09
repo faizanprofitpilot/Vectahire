@@ -8,7 +8,7 @@ import { ensureEmployer } from "@/lib/services/employer";
 import { jobFormSchema } from "@/lib/validation/job";
 import { enrichJobDescription, generateJobFieldsFromTitle } from "@/lib/ai/job-enrich";
 import { generateInterviewQuestionsForRole } from "@/lib/ai/generate-interview-questions";
-import { ensureJobInterviewTts } from "@/lib/jobs/job-question-tts";
+import { getQStashClient, appOrigin } from "@/lib/qstash";
 
 export async function createJob(formData: FormData) {
   const supabase = await createClient();
@@ -75,12 +75,27 @@ export async function createJob(formData: FormData) {
       hiringPriorities: v.hiring_priorities,
     });
     const items = texts.map((text) => ({ id: randomUUID(), text }));
-    const withTts = await ensureJobInterviewTts(data.id, items);
     const { error: upErr } = await supabase
       .from("jobs")
-      .update({ interview_questions: withTts })
+      .update({ interview_questions: items })
       .eq("id", data.id);
     if (upErr) throw new Error(upErr.message);
+
+    try {
+      const client = getQStashClient();
+      const origin = appOrigin() || "http://localhost:3000";
+      const url = `${origin}/api/jobs/${data.id}/build-audio`;
+      await client.publish({
+        url,
+        body: JSON.stringify({ jobId: data.id }),
+        headers: {
+          "Content-Type": "application/json",
+          "Upstash-Deduplication-Id": `job-audio-${data.id}`,
+        },
+      });
+    } catch (e) {
+      console.error("QStash enqueue failed", e);
+    }
   } catch (e) {
     await supabase.from("jobs").delete().eq("id", data.id);
     const message = e instanceof Error ? e.message : "Failed to build interview plan";
@@ -170,8 +185,22 @@ export async function updateJob(jobId: string, formData: FormData) {
         hiringPriorities: v.hiring_priorities,
       });
       const items = texts.map((text) => ({ id: randomUUID(), text }));
-      const withTts = await ensureJobInterviewTts(jobId, items);
-      await supabase.from("jobs").update({ interview_questions: withTts }).eq("id", jobId);
+      await supabase.from("jobs").update({ interview_questions: items }).eq("id", jobId);
+      try {
+        const client = getQStashClient();
+        const origin = appOrigin() || "http://localhost:3000";
+        const url = `${origin}/api/jobs/${jobId}/build-audio`;
+        await client.publish({
+          url,
+          body: JSON.stringify({ jobId }),
+          headers: {
+            "Content-Type": "application/json",
+            "Upstash-Deduplication-Id": `job-audio-${jobId}`,
+          },
+        });
+      } catch (e) {
+        console.error("QStash enqueue failed (updateJob)", e);
+      }
     } catch (e) {
       console.error("Regenerate interview plan failed", e);
     }

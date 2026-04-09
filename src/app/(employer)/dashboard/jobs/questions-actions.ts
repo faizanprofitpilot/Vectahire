@@ -12,7 +12,7 @@ import {
   type InterviewQuestionItem,
 } from "@/lib/jobs/interview-questions";
 import { generateInterviewQuestionsForRole } from "@/lib/ai/generate-interview-questions";
-import { ensureJobInterviewTts } from "@/lib/jobs/job-question-tts";
+import { getQStashClient, appOrigin } from "@/lib/qstash";
 
 export async function saveInterviewQuestionsAction(
   jobId: string,
@@ -48,15 +48,29 @@ export async function saveInterviewQuestionsAction(
   });
 
   try {
-    const withTts = await ensureJobInterviewTts(jobId, merged);
     const { error } = await supabase
       .from("jobs")
-      .update({ interview_questions: withTts })
+      .update({ interview_questions: merged })
       .eq("id", jobId);
 
     if (error) return { error: error.message };
+
+    try {
+      const client = getQStashClient();
+      const origin = appOrigin() || "http://localhost:3000";
+      await client.publish({
+        url: `${origin}/api/jobs/${jobId}/build-audio`,
+        body: JSON.stringify({ jobId }),
+        headers: {
+          "Content-Type": "application/json",
+          "Upstash-Deduplication-Id": `job-audio-${jobId}`,
+        },
+      });
+    } catch (e) {
+      console.error("QStash enqueue failed (saveInterviewQuestionsAction)", e);
+    }
   } catch (e) {
-    const message = e instanceof Error ? e.message : "Could not update question audio";
+    const message = e instanceof Error ? e.message : "Could not update interview questions";
     return { error: message };
   }
 
@@ -104,18 +118,31 @@ export async function generateInterviewQuestionsAction(
       text,
     }));
 
-    const withTts = await ensureJobInterviewTts(jobId, questions);
-
     const { error } = await supabase
       .from("jobs")
-      .update({ interview_questions: withTts })
+      .update({ interview_questions: questions })
       .eq("id", jobId);
 
     if (error) return { error: error.message };
 
+    try {
+      const client = getQStashClient();
+      const origin = appOrigin() || "http://localhost:3000";
+      await client.publish({
+        url: `${origin}/api/jobs/${jobId}/build-audio`,
+        body: JSON.stringify({ jobId }),
+        headers: {
+          "Content-Type": "application/json",
+          "Upstash-Deduplication-Id": `job-audio-${jobId}`,
+        },
+      });
+    } catch (e) {
+      console.error("QStash enqueue failed (generateInterviewQuestionsAction)", e);
+    }
+
     revalidatePath(`/dashboard/jobs/${jobId}`);
     revalidatePath("/dashboard/jobs");
-    return { questions: withTts };
+    return { questions };
   } catch (e) {
     const message = e instanceof Error ? e.message : "Generation failed";
     return { error: message };
