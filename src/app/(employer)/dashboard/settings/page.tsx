@@ -7,6 +7,7 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { DashboardPageHeader } from "@/components/dashboard/dashboard-page-header";
+import { UpgradeToProButton } from "@/components/billing/upgrade-to-pro-button";
 import { createClient } from "@/lib/supabase/server";
 import { ensureEmployer } from "@/lib/services/employer";
 import { getOrCreateUsageRow } from "@/lib/services/usage";
@@ -69,6 +70,17 @@ export default async function SettingsPage() {
             <Badge className="rounded-md">{employer.subscription_tier}</Badge>
             {sub?.status ? <Badge variant="outline">{sub.status}</Badge> : null}
           </div>
+          {employer.subscription_tier !== "pro" ? (
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border/80 bg-muted/20 p-5">
+              <div>
+                <p className="font-medium">Upgrade to Pro</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Higher limits for invites and scored interviews.
+                </p>
+              </div>
+              <UpgradeToProButton />
+            </div>
+          ) : null}
           {sub?.current_period_end ? (
             <p className="text-muted-foreground">
               Current period ends {new Date(sub.current_period_end).toLocaleDateString()}

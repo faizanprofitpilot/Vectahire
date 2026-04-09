@@ -7,7 +7,8 @@ export type UsageLimits = {
 
 const TIER_LIMITS: Record<SubscriptionTier, UsageLimits> = {
   free: { maxInvitesPerMonth: 25, maxCompletedInterviewsPerMonth: 10 },
-  starter: { maxInvitesPerMonth: 200, maxCompletedInterviewsPerMonth: 75 },
+  // `starter` remains in the enum/type for compatibility, but the product offers only Free + Pro.
+  starter: { maxInvitesPerMonth: 2000, maxCompletedInterviewsPerMonth: 500 },
   pro: { maxInvitesPerMonth: 2000, maxCompletedInterviewsPerMonth: 500 },
 };
 

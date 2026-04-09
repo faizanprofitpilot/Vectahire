@@ -16,26 +16,15 @@ const tiers = [
     footnote: null as string | null,
   },
   {
-    id: "starter" as const,
-    name: "Starter",
-    blurb: "Growing teams running consistent screens.",
+    id: "pro" as const,
+    name: "Pro",
+    blurb: "Upgrade limits when interviews become your default first round.",
     price: "$149",
     period: "per month",
     highlighted: true,
-    cta: "Get started",
-    href: "/signup",
-    footnote: "Illustrative price, connect Stripe when you are ready to bill.",
-  },
-  {
-    id: "pro" as const,
-    name: "Pro",
-    blurb: "High volume hiring with priority expectations.",
-    price: "Custom",
-    period: "talk to us",
-    highlighted: false,
-    cta: "Contact sales",
-    href: "/signup",
-    footnote: "Volume, SSO, and security reviews available on Pro.",
+    cta: "Upgrade to Pro",
+    href: "/login?redirect=/dashboard/settings",
+    footnote: "One paid plan. Upgrade takes effect immediately after checkout.",
   },
 ];
 
@@ -58,12 +47,11 @@ export function PricingSection() {
             Simple plans. Serious limits.
           </h2>
           <p className="mt-4 text-lg text-[oklch(0.45_0.02_260)]">
-            Start free, upgrade when interviews become your default first round. Usage maps
-            cleanly to Stripe later with no schema rewrites.
+            Start free, upgrade to Pro when interviews become your default first round.
           </p>
         </div>
 
-        <div className="mt-14 grid gap-6 lg:grid-cols-3 lg:items-stretch">
+        <div className="mt-14 grid gap-6 lg:grid-cols-2 lg:items-stretch">
           {tiers.map((tier) => {
             const limits = getLimitsForTier(tier.id);
             return (
@@ -200,8 +188,7 @@ export function PricingSection() {
 
         <p className="mx-auto mt-12 max-w-2xl text-center text-sm text-[oklch(0.48_0.02_260)]">
           The product is the same on every tier; limits scale with your monthly invites and
-          completed interviews. Stripe billing can plug in without changing how usage is
-          tracked.
+          completed interviews.
         </p>
       </div>
     </section>
