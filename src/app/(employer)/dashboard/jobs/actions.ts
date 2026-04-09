@@ -7,8 +7,8 @@ import { createClient } from "@/lib/supabase/server";
 import { ensureEmployer } from "@/lib/services/employer";
 import { jobFormSchema } from "@/lib/validation/job";
 import { enrichJobDescription, generateJobFieldsFromTitle } from "@/lib/ai/job-enrich";
-import { generateInterviewQuestionsForRole } from "@/lib/ai/generate-interview-questions";
 import { getQStashClient, appOrigin } from "@/lib/qstash";
+import { defaultInterviewQuestions } from "@/lib/jobs/default-interview-questions";
 
 export async function createJob(formData: FormData) {
   const supabase = await createClient();
@@ -66,40 +66,29 @@ export async function createJob(formData: FormData) {
 
   if (error) return { error: error.message };
 
-  try {
-    const texts = await generateInterviewQuestionsForRole({
-      title: v.title,
-      description: v.description,
-      seniority: v.seniority,
-      requiredSkills: v.required_skills,
-      hiringPriorities: v.hiring_priorities,
-    });
-    const items = texts.map((text) => ({ id: randomUUID(), text }));
-    const { error: upErr } = await supabase
-      .from("jobs")
-      .update({ interview_questions: items })
-      .eq("id", data.id);
-    if (upErr) throw new Error(upErr.message);
+  // Immediately attach a usable 10-question draft (fast) so the job page is ready in seconds.
+  const draftQuestions = defaultInterviewQuestions({
+    title: v.title,
+    seniority: v.seniority,
+    requiredSkills: v.required_skills,
+  });
+  await supabase.from("jobs").update({ interview_questions: draftQuestions }).eq("id", data.id);
 
-    try {
-      const client = getQStashClient();
-      const origin = appOrigin() || "http://localhost:3000";
-      const url = `${origin}/api/jobs/${data.id}/build-audio`;
-      await client.publish({
-        url,
-        body: JSON.stringify({ jobId: data.id }),
-        headers: {
-          "Content-Type": "application/json",
-          "Upstash-Deduplication-Id": `job-audio-${data.id}`,
-        },
-      });
-    } catch (e) {
-      console.error("QStash enqueue failed", e);
-    }
+  // Out-of-band: generate AI questions + TTS before invites unlock.
+  try {
+    const client = getQStashClient();
+    const origin = appOrigin() || "http://localhost:3000";
+    const url = `${origin}/api/jobs/${data.id}/build-plan`;
+    await client.publish({
+      url,
+      body: JSON.stringify({ jobId: data.id }),
+      headers: {
+        "Content-Type": "application/json",
+        "Upstash-Deduplication-Id": `job-plan-${data.id}`,
+      },
+    });
   } catch (e) {
-    await supabase.from("jobs").delete().eq("id", data.id);
-    const message = e instanceof Error ? e.message : "Failed to build interview plan";
-    return { error: message };
+    console.error("QStash enqueue failed", e);
   }
 
   revalidatePath("/dashboard");
@@ -177,25 +166,22 @@ export async function updateJob(jobId: string, formData: FormData) {
 
   if (roleContextChanged) {
     try {
-      const texts = await generateInterviewQuestionsForRole({
+      const draft = defaultInterviewQuestions({
         title: v.title,
-        description: v.description,
         seniority: v.seniority,
         requiredSkills: v.required_skills,
-        hiringPriorities: v.hiring_priorities,
       });
-      const items = texts.map((text) => ({ id: randomUUID(), text }));
-      await supabase.from("jobs").update({ interview_questions: items }).eq("id", jobId);
+      await supabase.from("jobs").update({ interview_questions: draft }).eq("id", jobId);
       try {
         const client = getQStashClient();
         const origin = appOrigin() || "http://localhost:3000";
-        const url = `${origin}/api/jobs/${jobId}/build-audio`;
+        const url = `${origin}/api/jobs/${jobId}/build-plan`;
         await client.publish({
           url,
           body: JSON.stringify({ jobId }),
           headers: {
             "Content-Type": "application/json",
-            "Upstash-Deduplication-Id": `job-audio-${jobId}`,
+            "Upstash-Deduplication-Id": `job-plan-${jobId}`,
           },
         });
       } catch (e) {

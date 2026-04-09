@@ -5,6 +5,8 @@ import { parseInterviewQuestions } from "@/lib/jobs/interview-questions";
 import { isAudioReadyForQuestions } from "@/lib/jobs/interview-audio";
 import { getQStashReceiver } from "@/lib/qstash";
 
+export const maxDuration = 120;
+
 export async function POST(
   request: Request,
   context: { params: Promise<{ jobId: string }> },
