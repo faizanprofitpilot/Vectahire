@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 
-const LOGO_SRC = "/Logo.png";
+const LOGO_SRC = "/logo.png";
 
 const sizeClass = {
   sm: "h-7 max-h-7",
@@ -31,7 +31,7 @@ type BrandLogoProps = {
 };
 
 /**
- * Product logo from `/public/Logo.png`. Use `href={null}` for a non-link mark.
+ * Product logo from `/public/logo.png`. Use `href={null}` for a non-link mark.
  */
 export function BrandLogo({
   href = "/",
